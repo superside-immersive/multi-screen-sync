@@ -1,0 +1,25 @@
+{
+  "name": "multi-screen-sync",
+  "version": "1.0.0",
+  "description": "Sistema multi-pantalla sincronizado con detección por webcam",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "websocket",
+    "multi-screen",
+    "interactive",
+    "art",
+    "webcam"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}

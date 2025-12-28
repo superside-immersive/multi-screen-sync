@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Screen | Multi-Screen Sync</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    /* Screen-specific styles */
+    body {
+      background-color: #000;
+      transition: background-color 50ms linear;
+      overflow: hidden;
+      touch-action: none;
+    }
+    
+    .screen-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .status-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+    
+    .status-bar.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+    }
+    
+    .status-dot.connected {
+      background: #44ff44;
+      box-shadow: 0 0 8px #44ff44;
+    }
+    
+    .device-name {
+      color: rgba(255, 255, 255, 0.8);
+      font-family: monospace;
+    }
+    
+    .center-info {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 14px;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    
+    .center-info.active {
+      opacity: 0;
+    }
+    
+    .fullscreen-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s;
+    }
+    
+    .fullscreen-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .fullscreen-btn.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-container">
+    <div class="status-bar" id="statusBar">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="connectionStatus">Conectando...</span>
+      </div>
+      <span class="device-name" id="deviceName">---</span>
+    </div>
+    
+    <div class="center-info" id="centerInfo">
+      <p>📱 Pantalla conectada</p>
+      <p style="font-size: 11px; margin-top: 8px;">Toca para ocultar la barra de estado</p>
+    </div>
+    
+    <button class="fullscreen-btn" id="fullscreenBtn">⛶ Pantalla completa</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/screen.js"></script>
+</body>
+</html>
