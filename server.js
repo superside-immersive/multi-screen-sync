@@ -20,6 +20,11 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const DEBUG = process.env.DEBUG === 'true';
 
+// Persist simple state so new screens inherit the last order even if controller is closed
+const lastState = {
+  broadcastColor: null
+};
+
 // Middleware
 app.use(cors());
 app.use(express.static(join(__dirname, 'public')));
@@ -86,8 +91,12 @@ io.on('connection', (socket) => {
     
     console.log(`[REGISTER] ${device.type.toUpperCase()}: ${device.name} (${socket.id})`);
     
-    // If it's a screen, notify controllers
+    // If it's a screen, notify controllers and push last broadcast color if any
     if (type === 'screen') {
+      if (lastState.broadcastColor) {
+        device.color = lastState.broadcastColor;
+        io.to(socket.id).emit('setColor', lastState.broadcastColor);
+      }
       broadcastScreenList();
     }
     
@@ -148,6 +157,7 @@ io.on('connection', (socket) => {
   socket.on('broadcastColor', (data) => {
     const { color } = data;
     if (DEBUG) console.log(`[BROADCAST] Color to all: ${JSON.stringify(color)}`);
+    lastState.broadcastColor = color;
     connectedDevices.forEach((device, socketId) => {
       if (device.type === 'screen') {
         device.color = color;
@@ -202,7 +212,8 @@ app.get('/api/health', (req, res) => {
 app.get('/api/state', (req, res) => {
   res.json({
     screens: getScreens(),
-    controller: getController()
+    controller: getController(),
+    lastState
   });
 });
 

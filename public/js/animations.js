@@ -212,6 +212,104 @@ const Animations = {
         ctx.fillRect(col * cellWidth, dropY, cellWidth, cellWidth);
       }
     }
+    },
+
+    // ==========================================
+    // CIRCLE SWEEP - Expanding halo
+    // ==========================================
+    circleSweep(ctx, width, height, time) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const maxR = Math.hypot(centerX, centerY);
+      const progress = (time * 0.6) % 1;
+      const radius = progress * maxR;
+      const ringWidth = Math.max(width * 0.05, 8);
+      const gradient = ctx.createRadialGradient(centerX, centerY, radius - ringWidth, centerX, centerY, radius + ringWidth);
+      gradient.addColorStop(0, 'rgba(255,255,255,0)');
+      gradient.addColorStop(0.4, 'rgba(255,255,255,0.7)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius + ringWidth, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, Math.max(0, radius - ringWidth), 0, Math.PI * 2, true);
+      ctx.fill();
+    },
+
+    // ==========================================
+    // CROSS SWEEP - Horizontal + vertical bars
+    // ==========================================
+    crossSweep(ctx, width, height, time) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      const barW = width * 0.12;
+      const barH = height * 0.12;
+      const speed = 0.55;
+      const p = (time * speed) % 1;
+      const x = p * (width + barW) - barW;
+      const y = (1 - p) * (height + barH) - barH;
+      const gradX = ctx.createLinearGradient(x, 0, x + barW, 0);
+      gradX.addColorStop(0, 'rgba(255,255,255,0)');
+      gradX.addColorStop(0.4, 'rgba(255,255,255,0.9)');
+      gradX.addColorStop(1, 'rgba(255,255,255,0)');
+      const gradY = ctx.createLinearGradient(0, y, 0, y + barH);
+      gradY.addColorStop(0, 'rgba(255,255,255,0)');
+      gradY.addColorStop(0.4, 'rgba(255,255,255,0.9)');
+      gradY.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradX;
+      ctx.fillRect(x, 0, barW, height);
+      ctx.fillStyle = gradY;
+      ctx.fillRect(0, y, width, barH);
+    },
+
+    // ==========================================
+    // SPIRAL - Color spiral sweep
+    // ==========================================
+    spiral(ctx, width, height, time) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      const cx = width / 2;
+      const cy = height / 2;
+      const turns = 3;
+      const maxR = Math.hypot(cx, cy);
+      ctx.lineWidth = 6;
+      for (let i = 0; i < 220; i++) {
+        const t = i / 220;
+        const angle = t * Math.PI * 2 * turns + time * 1.5;
+        const r = t * maxR;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        const hue = (t * 360 + time * 120) % 360;
+        ctx.strokeStyle = `hsla(${hue},100%,60%,0.7)`;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle) * 6, y + Math.sin(angle) * 6);
+        ctx.stroke();
+      }
+    },
+
+    // ==========================================
+    // RIPPLE - Soft concentric waves
+    // ==========================================
+    ripple(ctx, width, height, time) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+      const cx = width / 2;
+      const cy = height / 2;
+      const maxR = Math.hypot(cx, cy);
+      const waves = 4;
+      for (let i = 0; i < waves; i++) {
+        const phase = (time * 0.8 + i / waves) % 1;
+        const radius = phase * maxR;
+        const alpha = 1 - phase;
+        const hue = (200 + i * 25 + time * 40) % 360;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${hue}, 90%, 60%, ${alpha})`;
+        ctx.lineWidth = 10 * alpha + 2;
+        ctx.stroke();
+      }
   }
 };
 

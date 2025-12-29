@@ -15,7 +15,7 @@
     
     .controller-layout {
       display: grid;
-      grid-template-columns: 1fr 320px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
       grid-template-rows: 1fr auto;
       gap: 16px;
       padding: 16px;
@@ -27,6 +27,12 @@
       .controller-layout {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto auto;
+        height: auto;
+      }
+      .control-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
       }
     }
     
@@ -173,7 +179,7 @@
     /* Animation Select */
     .animation-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 8px;
     }
     
@@ -201,6 +207,26 @@
     .animation-btn .icon {
       font-size: 24px;
       margin-bottom: 4px;
+    }
+
+    .bang-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    
+    .bang-btn {
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: #f0f0f0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: background 0.2s, border 0.2s;
+    }
+    
+    .bang-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.2);
     }
     
     /* Control Bar */
@@ -384,6 +410,34 @@
             <div class="icon">▶️</div>
             <div>Barrido</div>
           </button>
+          <button class="animation-btn" data-animation="circleSweep">
+            <div class="icon">⭕</div>
+            <div>Halo</div>
+          </button>
+          <button class="animation-btn" data-animation="crossSweep">
+            <div class="icon">➕</div>
+            <div>Cruces</div>
+          </button>
+          <button class="animation-btn" data-animation="spiral">
+            <div class="icon">🧬</div>
+            <div>Espiral</div>
+          </button>
+          <button class="animation-btn" data-animation="ripple">
+            <div class="icon">🌊</div>
+            <div>Ondas</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>⚡ Bangs rápidos</h3>
+        <div class="bang-grid">
+          <button class="bang-btn" id="bangWhite">Blanco</button>
+          <button class="bang-btn" data-bang-color="255,80,80">Rojo</button>
+          <button class="bang-btn" data-bang-color="80,180,255">Cian</button>
+          <button class="bang-btn" data-bang-color="120,255,120">Verde</button>
+          <button class="bang-btn" data-bang-color="255,200,80">Ámbar</button>
+          <button class="bang-btn" id="bangRandom">Random</button>
         </div>
       </div>
       

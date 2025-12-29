@@ -13,7 +13,9 @@ const CONFIG = {
   canvasSize: 200,              // virtual animation canvas size (increased for better resolution)
   edgeDetectionPasses: 2,       // number of edge refinement passes
   morphologyKernel: 3,          // kernel size for morphological operations
-  gaussianBlurRadius: 2         // blur radius for noise reduction
+  gaussianBlurRadius: 2,        // blur radius for noise reduction
+  minNormalizedArea: 0.02,      // clamp area so very large detections are reduced
+  maxNormalizedArea: 0.65       // clamp area so oversize detections are limited
 };
 
 // State
@@ -48,6 +50,9 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const speedSlider = document.getElementById('speedSlider');
 const brightnessSlider = document.getElementById('brightnessSlider');
+const bangButtons = document.querySelectorAll('[data-bang-color]');
+const bangRandomBtn = document.getElementById('bangRandom');
+const bangWhiteBtn = document.getElementById('bangWhite');
 
 // Canvas contexts
 let overlayCtx = null;
@@ -218,15 +223,22 @@ function drawOverlay() {
   
   screens.forEach((screen, index) => {
     if (screen.position) {
-      const x = screen.position.x * overlayCanvas.width;
-      const y = screen.position.y * overlayCanvas.height;
+      const centerRect = denormalizeRectFromSquare({
+        x: screen.position.x,
+        y: screen.position.y,
+        width: 0,
+        height: 0
+      }, overlayCanvas.width, overlayCanvas.height);
+      const x = centerRect.x;
+      const y = centerRect.y;
       
       // If we have area data, draw the bounding box
       if (screen.area) {
-        const boxX = screen.area.x * overlayCanvas.width;
-        const boxY = screen.area.y * overlayCanvas.height;
-        const boxW = screen.area.width * overlayCanvas.width;
-        const boxH = screen.area.height * overlayCanvas.height;
+        const denormBox = denormalizeRectFromSquare(screen.area, overlayCanvas.width, overlayCanvas.height);
+        const boxX = denormBox.x;
+        const boxY = denormBox.y;
+        const boxW = denormBox.width;
+        const boxH = denormBox.height;
         
         // Draw bounding box with fill
         overlayCtx.fillStyle = 'rgba(74, 158, 255, 0.2)';
@@ -410,6 +422,80 @@ function averageFrames(frames) {
 }
 
 // ==========================================
+// GEOMETRY HELPERS (aspect-ratio aware)
+// ==========================================
+
+function normalizeRectToSquare(rect, width, height) {
+  const landscape = width >= height;
+  if (landscape) {
+    const scale = height / width;
+    const padY = (1 - scale) / 2;
+    return {
+      x: (rect.x / width),
+      y: (rect.y / height) * scale + padY,
+      width: (rect.width / width),
+      height: (rect.height / height) * scale
+    };
+  }
+  const scale = width / height;
+  const padX = (1 - scale) / 2;
+  return {
+    x: (rect.x / width) * scale + padX,
+    y: (rect.y / height),
+    width: (rect.width / width) * scale,
+    height: (rect.height / height)
+  };
+}
+
+function normalizePointToSquare(x, y, width, height) {
+  const landscape = width >= height;
+  if (landscape) {
+    const scale = height / width;
+    const padY = (1 - scale) / 2;
+    return {
+      x: x / width,
+      y: (y / height) * scale + padY
+    };
+  }
+  const scale = width / height;
+  const padX = (1 - scale) / 2;
+  return {
+    x: (x / width) * scale + padX,
+    y: y / height
+  };
+}
+
+function denormalizeRectFromSquare(rect, width, height) {
+  const landscape = width >= height;
+  if (landscape) {
+    const scale = height / width;
+    const padY = (1 - scale) / 2;
+    return {
+      x: rect.x * width,
+      y: ((rect.y - padY) / scale) * height,
+      width: rect.width * width,
+      height: (rect.height / scale) * height
+    };
+  }
+  const scale = width / height;
+  const padX = (1 - scale) / 2;
+  return {
+    x: ((rect.x - padX) / scale) * width,
+    y: rect.y * height,
+    width: (rect.width / scale) * width,
+    height: rect.height * height
+  };
+}
+
+function clampRect(rect) {
+  const x = Math.min(Math.max(rect.x, 0), 1);
+  const y = Math.min(Math.max(rect.y, 0), 1);
+  const width = Math.min(Math.max(rect.width, CONFIG.minNormalizedArea), CONFIG.maxNormalizedArea);
+  const height = Math.min(Math.max(rect.height, CONFIG.minNormalizedArea), CONFIG.maxNormalizedArea);
+  return { x, y, width, height };
+}
+
+// ==========================================
 // ADVANCED SCREEN DETECTION
 // ==========================================
 
@@ -481,17 +567,27 @@ function detectScreenArea(baseFrame, activeFrame) {
   // Calculate center (weighted centroid)
   const centerX = totalWeight > 0 ? totalX / totalWeight : (minX + maxX) / 2;
   const centerY = totalWeight > 0 ? totalY / totalWeight : (minY + maxY) / 2;
+
+  // Normalize to square space to avoid aspect distortion when mapping to animations
+  const normalizedArea = clampRect(normalizeRectToSquare({
+    x: refinedBox.minX,
+    y: refinedBox.minY,
+    width: refinedBox.maxX - refinedBox.minX,
+    height: refinedBox.maxY - refinedBox.minY
+  }, width, height));
+
+  const normalizedCenter = normalizePointToSquare(centerX, centerY, width, height);
   
   return {
     center: {
-      x: centerX / width,
-      y: centerY / height
+      x: normalizedCenter.x,
+      y: normalizedCenter.y
     },
     area: {
-      x: refinedBox.minX / width,
-      y: refinedBox.minY / height,
-      width: (refinedBox.maxX - refinedBox.minX) / width,
-      height: (refinedBox.maxY - refinedBox.minY) / height
+      x: normalizedArea.x,
+      y: normalizedArea.y,
+      width: normalizedArea.width,
+      height: normalizedArea.height
     },
     pixelCount: blob.pixels.length
   };
@@ -783,11 +879,12 @@ function sampleAreaColor(screen) {
   const canvasSize = CONFIG.canvasSize;
   
   if (screen.area) {
+    const normalized = clampRect(screen.area);
     // Sample multiple points within the screen's area and average
-    const areaX = Math.floor(screen.area.x * canvasSize);
-    const areaY = Math.floor(screen.area.y * canvasSize);
-    const areaW = Math.max(1, Math.floor(screen.area.width * canvasSize));
-    const areaH = Math.max(1, Math.floor(screen.area.height * canvasSize));
+    const areaX = Math.floor(normalized.x * canvasSize);
+    const areaY = Math.floor(normalized.y * canvasSize);
+    const areaW = Math.max(1, Math.floor(normalized.width * canvasSize));
+    const areaH = Math.max(1, Math.floor(normalized.height * canvasSize));
     
     // Get all pixels in the area
     const imageData = virtualCtx.getImageData(areaX, areaY, areaW, areaH);
@@ -855,6 +952,29 @@ function blackout() {
   socket.emit('broadcastColor', { color: { r: 0, g: 0, b: 0 } });
 }
 
+// Quick flash with smooth decay
+function triggerBang(color) {
+  stopAnimation();
+  const steps = 18;
+  const hold = 120;
+  const duration = 900;
+  const fadeDuration = duration - hold;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const factor = i === 0 ? 1 : Math.pow(1 - t, 1.6);
+    const payload = {
+      r: Math.round(color.r * factor),
+      g: Math.round(color.g * factor),
+      b: Math.round(color.b * factor)
+    };
+    const delay = hold + Math.round(fadeDuration * t);
+    setTimeout(() => {
+      socket.emit('broadcastColor', { color: payload });
+    }, delay);
+  }
+}
+
 // ==========================================
 // ANIMATION RENDERING (uses animations.js)
 // ==========================================
@@ -883,6 +1003,18 @@ function renderAnimation(type, time) {
       break;
     case 'sweep':
       Animations.sweep(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'circleSweep':
+      Animations.circleSweep(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'spiral':
+      Animations.spiral(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'crossSweep':
+      Animations.crossSweep(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'ripple':
+      Animations.ripple(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
       break;
     default:
       Animations.gradient(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
@@ -931,6 +1063,27 @@ scanBtn.addEventListener('click', startScan);
 playBtn.addEventListener('click', startAnimation);
 stopBtn.addEventListener('click', stopAnimation);
 blackoutBtn.addEventListener('click', blackout);
+
+bangButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const [r, g, b] = btn.dataset.bangColor.split(',').map(Number);
+    triggerBang({ r, g, b });
+  });
+});
+
+if (bangRandomBtn) {
+  bangRandomBtn.addEventListener('click', () => {
+    const hue = Math.random() * 360;
+    const rgb = hslToRgb(hue / 360, 1, 0.5);
+    triggerBang(rgb);
+  });
+}
+
+if (bangWhiteBtn) {
+  bangWhiteBtn.addEventListener('click', () => {
+    triggerBang({ r: 255, g: 255, b: 255 });
+  });
+}
 
 // ==========================================
 // INITIALIZATION
