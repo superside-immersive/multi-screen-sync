@@ -18,10 +18,17 @@ let isConnected = false;
 let statusBarTimeout = null;
 
 // DOM Elements
+const colorDisplay = document.getElementById('colorDisplay');
+
+// Current screen.html uses these IDs
+const statusText = document.getElementById('statusText');
+const idText = document.getElementById('idText');
+const statusBar = document.querySelector('.status-bar');
+
+// Optional elements (may not exist depending on the HTML version)
 const statusDot = document.getElementById('statusDot');
 const connectionStatus = document.getElementById('connectionStatus');
 const deviceNameEl = document.getElementById('deviceName');
-const statusBar = document.getElementById('statusBar');
 const centerInfo = document.getElementById('centerInfo');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 
@@ -59,7 +66,8 @@ function connectSocket() {
 
   socket.on('registered', (data) => {
     deviceId = data.id;
-    deviceNameEl.textContent = data.name;
+    if (deviceNameEl) deviceNameEl.textContent = data.name;
+    if (idText) idText.textContent = data.name;
     console.log(`[SCREEN] Registered as: ${data.name} (${data.id})`);
   });
 
@@ -85,12 +93,12 @@ function connectSocket() {
     
     // Set color immediately
     setBackgroundColor(color);
-    centerInfo.classList.add('active');
+    if (centerInfo) centerInfo.classList.add('active');
   });
 
   socket.on('setColor', (color) => {
     setBackgroundColor(color);
-    centerInfo.classList.add('active');
+    if (centerInfo) centerInfo.classList.add('active');
   });
 }
 
@@ -99,21 +107,29 @@ function connectSocket() {
 // ==========================================
 
 function setBackgroundColor(color) {
+  const apply = (cssColor) => {
+    if (colorDisplay) {
+      colorDisplay.style.backgroundColor = cssColor;
+    } else {
+      document.body.style.backgroundColor = cssColor;
+    }
+  };
+
   if (typeof color === 'string') {
     // Handle named colors or hex
-    document.body.style.backgroundColor = color;
+    apply(color);
   } else if (typeof color === 'object') {
     if (color.hex) {
-      document.body.style.backgroundColor = color.hex;
+      apply(color.hex);
     } else if (color.r !== undefined) {
-      document.body.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      apply(`rgb(${color.r}, ${color.g}, ${color.b})`);
     }
   }
   
   // Update theme-color meta tag
   const themeColor = document.querySelector('meta[name="theme-color"]');
   if (themeColor) {
-    themeColor.content = document.body.style.backgroundColor;
+    themeColor.content = (colorDisplay && colorDisplay.style.backgroundColor) || document.body.style.backgroundColor;
   }
 }
 
@@ -122,16 +138,19 @@ function setBackgroundColor(color) {
 // ==========================================
 
 function updateConnectionStatus(connected) {
-  if (connected) {
-    statusDot.classList.add('connected');
-    connectionStatus.textContent = 'Conectado';
-  } else {
-    statusDot.classList.remove('connected');
-    connectionStatus.textContent = 'Reconectando...';
+  if (statusDot) {
+    statusDot.classList.toggle('connected', connected);
+  }
+  if (connectionStatus) {
+    connectionStatus.textContent = connected ? 'Conectado' : 'Reconectando...';
+  }
+  if (statusText) {
+    statusText.textContent = connected ? 'Conectado' : 'Connecting...';
   }
 }
 
 function toggleStatusBar() {
+  if (!statusBar) return;
   statusBar.classList.toggle('hidden');
   
   // Clear existing timeout
@@ -191,9 +210,10 @@ function toggleFullscreen() {
 
 // Update button based on fullscreen state
 document.addEventListener('fullscreenchange', () => {
+  if (!fullscreenBtn) return;
   if (document.fullscreenElement) {
     fullscreenBtn.classList.add('hidden');
-    statusBar.classList.add('hidden');
+    if (statusBar) statusBar.classList.add('hidden');
   } else {
     fullscreenBtn.classList.remove('hidden');
   }
@@ -205,16 +225,18 @@ document.addEventListener('fullscreenchange', () => {
 
 // Toggle status bar on tap
 document.body.addEventListener('click', (e) => {
-  if (e.target !== fullscreenBtn) {
+  if (!fullscreenBtn || e.target !== fullscreenBtn) {
     toggleStatusBar();
   }
 });
 
-// Fullscreen button
-fullscreenBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  toggleFullscreen();
-});
+// Fullscreen button (optional)
+if (fullscreenBtn) {
+  fullscreenBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleFullscreen();
+  });
+}
 
 // Prevent context menu on long press
 document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -243,9 +265,11 @@ async function init() {
   connectSocket();
   
   // Auto-hide status bar after delay
-  statusBarTimeout = setTimeout(() => {
-    statusBar.classList.add('hidden');
-  }, CONFIG.hideStatusBarDelay);
+  if (statusBar) {
+    statusBarTimeout = setTimeout(() => {
+      statusBar.classList.add('hidden');
+    }, CONFIG.hideStatusBarDelay);
+  }
 }
 
 // Start when DOM is ready

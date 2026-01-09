@@ -101,8 +101,12 @@ function connectSocket() {
 }
 
 function updateConnectionStatus(connected) {
-  connectionDot.classList.toggle('connected', connected);
-  connectionText.textContent = connected ? 'Conectado' : 'Desconectado';
+  if (connectionDot) {
+    connectionDot.classList.toggle('connected', connected);
+  }
+  if (connectionText) {
+    connectionText.textContent = connected ? 'Conectado' : 'Desconectado';
+  }
 }
 
 // ==========================================
@@ -186,7 +190,7 @@ function renderScreenList() {
       <div class="screen-item" data-id="${screen.socketId}">
         <div class="screen-color" style="background: ${screen.color ? rgbToHex(screen.color) : '#333'}"></div>
         <div class="screen-info">
-          <div class="screen-name">${screen.name}</div>
+          <div class="screen-name">${screen.name} <span class="text-muted">(${screen.socketId.slice(0, 6)})</span></div>
           <div class="screen-position">${positionInfo}</div>
         </div>
         <span class="screen-status ${hasPosition ? 'detected' : 'pending'}">

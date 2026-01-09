@@ -332,6 +332,10 @@ video, canvas {
   transition: background-color 0.1s linear;
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .controller-layout {
