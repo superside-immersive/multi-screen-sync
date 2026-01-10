@@ -26,10 +26,12 @@ let webcamStream = null;
 let isScanning = false;
 let isAnimating = false;
 let currentAnimation = 'gradient';
+let lastLoopAnimation = 'gradient';
 let animationSpeed = 1;
 let animationBrightness = 1;
 let animationFrame = null;
 let lastColors = new Map(); // For delta encoding
+let tintColor = { r: 255, g: 255, b: 255 }; // default white
 
 // Audio reactive (bass boom) mode
 let audioBeatEnabled = false;
@@ -42,6 +44,7 @@ let audioRaf = null;
 let audioBaseline = 0;
 let lastBeatAt = 0;
 let oneShotRunning = false;
+let audioModeRequested = false;
 
 // DOM Elements
 const videoContainer = document.getElementById('videoContainer');
@@ -54,7 +57,11 @@ const animationGrid = document.getElementById('animationGrid');
 const scanBtn = document.getElementById('scanBtn');
 const playBtn = document.getElementById('playBtn');
 const stopBtn = document.getElementById('stopBtn');
+const autoLoopBtn = document.getElementById('autoLoopBtn');
+const pulseOnceBtn = document.getElementById('pulseOnceBtn');
+const audioModeBtn = document.getElementById('audioModeBtn');
 const blackoutBtn = document.getElementById('blackoutBtn');
+const colorButtons = document.querySelectorAll('.color-btn');
 const connectionDot = document.getElementById('connectionDot');
 const connectionText = document.getElementById('connectionText');
 const scanProgress = document.getElementById('scanProgress');
@@ -966,6 +973,44 @@ function stopAnimation() {
   console.log('[ANIMATION] Stopped');
 }
 
+function setActiveAnimationButton(animationName) {
+  if (!animationGrid) return;
+  animationGrid.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
+  const btn = animationGrid.querySelector(`[data-animation="${animationName}"]`);
+  if (btn) btn.classList.add('active');
+}
+
+function enableAutoLoop(startNow = true) {
+  // Exit audio mode if active
+  stopAudioBeatMode();
+
+  // Switch back to last selected non-audio animation
+  currentAnimation = lastLoopAnimation || 'gradient';
+  setActiveAnimationButton(currentAnimation);
+
+  // Restart loop if requested
+  if (startNow) {
+    if (isAnimating) stopAnimation();
+    startAnimation();
+  }
+
+  if (progressText) {
+    progressText.textContent = `Loop: ${currentAnimation}`;
+  }
+  updateControls();
+}
+
+function triggerPulseOnce() {
+  // Manual trigger: one-shot pulse (no loop)
+  stopAudioBeatMode();
+  stopAnimation();
+  if (progressText) {
+    progressText.textContent = 'Pulso: 1 vez';
+  }
+  runOneShot('pulse', 1200);
+  updateControls();
+}
+
 function getDetectedScreens() {
   return screens.filter(s => s.position);
 }
@@ -976,10 +1021,11 @@ function sampleAndSendFrame(detectedScreens) {
   detectedScreens.forEach(screen => {
     const color = sampleAreaColor(screen);
 
+    const tinted = applyTint(color);
     const finalColor = {
-      r: Math.round(color.r * animationBrightness),
-      g: Math.round(color.g * animationBrightness),
-      b: Math.round(color.b * animationBrightness)
+      r: Math.round(tinted.r * animationBrightness),
+      g: Math.round(tinted.g * animationBrightness),
+      b: Math.round(tinted.b * animationBrightness)
     };
 
     const lastColor = lastColors.get(screen.socketId);
@@ -992,6 +1038,17 @@ function sampleAndSendFrame(detectedScreens) {
   if (colors.length > 0) {
     socket.emit('sendColors', colors);
   }
+}
+
+function applyTint(color) {
+  if (!tintColor) return color;
+  // Preserve brightness from the source color but steer hue to tintColor
+  const intensity = Math.max(color.r, color.g, color.b) / 255;
+  return {
+    r: Math.round(tintColor.r * intensity),
+    g: Math.round(tintColor.g * intensity),
+    b: Math.round(tintColor.b * intensity)
+  };
 }
 
 function runOneShot(animationType, durationMs) {
@@ -1045,6 +1102,7 @@ async function startAudioBeatMode() {
   if (audioBeatEnabled) return;
   audioBeatEnabled = true;
   oneShotRunning = false;
+  audioModeRequested = true;
 
   stopAnimation();
   updateControls();
@@ -1069,7 +1127,7 @@ async function startAudioBeatMode() {
     audioBaseline = 0;
     lastBeatAt = 0;
 
-    progressText.textContent = 'AudioRítmico: escuchando graves...';
+    if (progressText) progressText.textContent = 'AudioRítmico: escuchando graves...';
 
     const minHz = 40;
     const maxHz = 140;
@@ -1103,7 +1161,8 @@ async function startAudioBeatMode() {
       if (boom && now - lastBeatAt > cooldownMs) {
         lastBeatAt = now;
         // One-shot sequence: a single pulse (no loop) per boom
-        runOneShot('pulse', 1200);
+        const animForBeat = lastLoopAnimation || currentAnimation || 'pulse';
+        runOneShot(animForBeat, 1200);
       }
 
       audioRaf = requestAnimationFrame(tick);
@@ -1113,7 +1172,7 @@ async function startAudioBeatMode() {
   } catch (err) {
     console.error('[AUDIO] Could not start audio mode:', err);
     audioBeatEnabled = false;
-    progressText.textContent = 'AudioRítmico: sin permiso de micrófono';
+    if (progressText) progressText.textContent = 'AudioRítmico: sin permiso de micrófono';
     updateControls();
   }
 }
@@ -1212,6 +1271,21 @@ function renderAnimation(type, time) {
     case 'circleSweep':
       Animations.circleSweep(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
       break;
+    case 'ring':
+      Animations.ring(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'sweepV':
+      Animations.sweepV(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'diag':
+      Animations.diag(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'checker':
+      Animations.checker(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
+    case 'sparkle':
+      Animations.sparkle(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
     case 'spiral':
       Animations.spiral(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
       break;
@@ -1236,12 +1310,26 @@ function updateControls() {
   const hasDetectedScreens = screens.some(s => s.position);
   
   scanBtn.disabled = !hasWebcam || !hasScreens || isScanning;
+  // Playback buttons
+  // - In audio mode: Play switches back to loop; Stop stops audio mode.
+  // - In loop mode: Play/Stop control the loop.
   if (audioBeatEnabled) {
-    playBtn.disabled = true;
-    stopBtn.disabled = true;
+    playBtn.disabled = !hasDetectedScreens;
+    stopBtn.disabled = false;
   } else {
     playBtn.disabled = !hasDetectedScreens || isAnimating;
     stopBtn.disabled = !isAnimating;
+  }
+
+  if (autoLoopBtn) {
+    autoLoopBtn.disabled = !hasDetectedScreens;
+  }
+  if (pulseOnceBtn) {
+    pulseOnceBtn.disabled = !isConnected || !hasScreens;
+  }
+  if (audioModeBtn) {
+    audioModeBtn.disabled = !hasDetectedScreens;
+    audioModeBtn.classList.toggle('active', audioBeatEnabled);
   }
 }
 
@@ -1256,15 +1344,10 @@ animationGrid.addEventListener('click', (e) => {
   
   const next = btn.dataset.animation;
 
-  if (next === 'audioBeat') {
-    startAudioBeatMode();
-    currentAnimation = 'audioBeat';
-    console.log('[AUDIO] AudioRítmico enabled');
-  } else {
-    stopAudioBeatMode();
-    currentAnimation = next;
-    console.log(`[ANIMATION] Selected: ${currentAnimation}`);
-  }
+  stopAudioBeatMode();
+  currentAnimation = next;
+  lastLoopAnimation = next;
+  console.log(`[ANIMATION] Selected: ${currentAnimation}`);
 });
 
 // Sliders
@@ -1279,8 +1362,45 @@ brightnessSlider.addEventListener('input', (e) => {
 // Buttons
 startWebcamBtn.addEventListener('click', startWebcam);
 scanBtn.addEventListener('click', startScan);
-playBtn.addEventListener('click', startAnimation);
-stopBtn.addEventListener('click', stopAnimation);
+playBtn.addEventListener('click', () => {
+  if (audioBeatEnabled) {
+    enableAutoLoop(true);
+    return;
+  }
+  startAnimation();
+});
+stopBtn.addEventListener('click', () => {
+  if (audioBeatEnabled) {
+    stopAudioBeatMode();
+    return;
+  }
+  stopAnimation();
+});
+if (autoLoopBtn) {
+  autoLoopBtn.addEventListener('click', () => enableAutoLoop(true));
+}
+if (pulseOnceBtn) {
+  pulseOnceBtn.addEventListener('click', triggerPulseOnce);
+}
+if (audioModeBtn) {
+  audioModeBtn.addEventListener('click', () => {
+    if (audioBeatEnabled) {
+      stopAudioBeatMode();
+    } else {
+      startAudioBeatMode();
+    }
+  });
+}
+if (colorButtons && colorButtons.length) {
+  colorButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      colorButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const [r, g, b] = btn.dataset.color.split(',').map(Number);
+      tintColor = { r, g, b };
+    });
+  });
+}
 blackoutBtn.addEventListener('click', blackout);
 
 bangButtons.forEach(btn => {

@@ -64,6 +64,8 @@
             <div class="grid grid-2">
               <button id="playBtn" class="btn btn-primary" disabled>PLAY</button>
               <button id="stopBtn" class="btn" disabled>STOP</button>
+              <button id="autoLoopBtn" class="btn" style="grid-column: span 2;" disabled>AUTO LOOP</button>
+              <button id="pulseOnceBtn" class="btn" style="grid-column: span 2;" disabled>PULSO (1x)</button>
               <button id="blackoutBtn" class="btn btn-danger" style="grid-column: span 2;">BLACKOUT</button>
             </div>
           </div>
@@ -80,6 +82,13 @@
               </div>
               <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+
+            <div class="card">
+              <h3 class="text-mono" style="margin-bottom: 1rem;">MODO REACTIVO</h3>
+              <div class="grid">
+                <button id="audioModeBtn" class="btn" disabled>Audio Rítmico (On/Off)</button>
+              </div>
+            </div>
                   <span class="text-sm text-muted">Brightness</span>
                   <span id="brightVal" class="text-mono text-sm">100%</span>
                 </div>
@@ -94,18 +103,34 @@
       <div class="card">
         <h3 class="text-mono" style="margin-bottom: 1rem;">ANIMATIONS</h3>
         <div id="animationGrid" class="anim-grid">
-          <button class="control-btn active" data-animation="gradient">Gradient</button>
-          <button class="control-btn" data-animation="audioBeat">AudioRítmico</button>
-          <button class="control-btn" data-animation="radial">Radial</button>
-          <button class="control-btn" data-animation="rainbow">Rainbow</button>
-          <button class="control-btn" data-animation="bounce">Bounce</button>
-          <button class="control-btn" data-animation="pulse">Pulse</button>
-          <button class="control-btn" data-animation="matrix">Matrix</button>
-          <button class="control-btn" data-animation="sweep">Sweep</button>
-          <button class="control-btn" data-animation="circleSweep">Circle</button>
-          <button class="control-btn" data-animation="spiral">Spiral</button>
-          <button class="control-btn" data-animation="crossSweep">Cross</button>
-          <button class="control-btn" data-animation="ripple">Ripple</button>
+          <button class="control-btn active" data-animation="gradient"><span class="mini-preview gradient"></span>Gradient</button>
+          <button class="control-btn" data-animation="sweep"><span class="mini-preview sweep"></span>Barrido H</button>
+          <button class="control-btn" data-animation="sweepV"><span class="mini-preview sweepV"></span>Barrido V</button>
+          <button class="control-btn" data-animation="diag"><span class="mini-preview diag"></span>Barrido Diag</button>
+          <button class="control-btn" data-animation="checker"><span class="mini-preview checker"></span>Checker</button>
+          <button class="control-btn" data-animation="sparkle"><span class="mini-preview sparkle"></span>Chispas</button>
+          <button class="control-btn" data-animation="radial"><span class="mini-preview radial"></span>Radial</button>
+          <button class="control-btn" data-animation="rainbow"><span class="mini-preview rainbow"></span>Rainbow</button>
+          <button class="control-btn" data-animation="bounce"><span class="mini-preview bounce"></span>Bounce</button>
+          <button class="control-btn" data-animation="pulse"><span class="mini-preview pulse"></span>Pulse</button>
+          <button class="control-btn" data-animation="matrix"><span class="mini-preview matrix"></span>Matrix</button>
+          <button class="control-btn" data-animation="circleSweep"><span class="mini-preview circle"></span>Circle</button>
+          <button class="control-btn" data-animation="ring"><span class="mini-preview ring"></span>Anillo</button>
+          <button class="control-btn" data-animation="spiral"><span class="mini-preview spiral"></span>Spiral</button>
+          <button class="control-btn" data-animation="crossSweep"><span class="mini-preview cross"></span>Cross</button>
+          <button class="control-btn" data-animation="ripple"><span class="mini-preview ripple"></span>Ripple</button>
+        </div>
+      </div>
+
+      <!-- Color Palette -->
+      <div class="card">
+        <h3 class="text-mono" style="margin-bottom: 1rem;">COLOR</h3>
+        <div class="palette-grid">
+          <button class="color-btn active" data-color="255,255,255" aria-label="Blanco" style="background:#fff;"></button>
+          <button class="color-btn" data-color="255,0,0" aria-label="Rojo" style="background:#ff3b30;"></button>
+          <button class="color-btn" data-color="0,255,0" aria-label="Verde" style="background:#34c759;"></button>
+          <button class="color-btn" data-color="0,122,255" aria-label="Azul" style="background:#007aff;"></button>
+          <button class="color-btn" data-color="255,180,0" aria-label="Ámbar" style="background:#ffb400;"></button>
         </div>
       </div>
 

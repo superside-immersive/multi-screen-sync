@@ -184,6 +184,78 @@ const Animations = {
     ctx.fillStyle = gradient;
     ctx.fillRect(barX, 0, barWidth, height);
   },
+
+  // Vertical sweep
+  sweepV(ctx, width, height, time) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, width, height);
+    const barH = height * 0.18;
+    const speed = 0.5;
+    const progress = (time * speed) % 1.2;
+    const barY = progress * (height + barH) - barH;
+    const gradient = ctx.createLinearGradient(0, barY, 0, barY + barH);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, barY, width, barH);
+  },
+
+  // Diagonal sweep
+  diag(ctx, width, height, time) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, width, height);
+    const speed = 0.45;
+    const thickness = width * 0.22;
+    const p = (time * speed) % 1.6; // overshoot to exit fully
+    const offset = p * (width + height) - thickness;
+    ctx.save();
+    ctx.translate(-height * 0.5, 0);
+    ctx.rotate(45 * Math.PI / 180);
+    const gradient = ctx.createLinearGradient(offset, 0, offset + thickness, 0);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(offset, 0, thickness, width + height);
+    ctx.restore();
+  },
+
+  // Checker flicker (pixel grid vibe)
+  checker(ctx, width, height, time) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, width, height);
+    const cells = 10;
+    const cellW = width / cells;
+    const cellH = height / cells;
+    const phase = Math.floor(time * 6) % 2;
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const on = (x + y + phase) % 2 === 0;
+        if (on) {
+          const hue = (time * 120 + (x + y) * 8) % 360;
+          ctx.fillStyle = `hsl(${hue}, 90%, 55%)`;
+          ctx.fillRect(x * cellW, y * cellH, cellW, cellH);
+        }
+      }
+    }
+  },
+
+  // Sparkle noise (micro pixels)
+  sparkle(ctx, width, height, time) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, width, height);
+    const dots = 180;
+    for (let i = 0; i < dots; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const life = (Math.sin(time * 4 + i) + 1) * 0.5;
+      const hue = (time * 80 + i * 12) % 360;
+      ctx.fillStyle = `hsla(${hue}, 100%, 70%, ${0.2 + life * 0.6})`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+  },
   
   // ==========================================
   // MATRIX - Digital rain effect
@@ -236,6 +308,36 @@ const Animations = {
       ctx.arc(centerX, centerY, Math.max(0, radius - ringWidth), 0, Math.PI * 2, true);
       ctx.fill();
     },
+
+      // ==========================================
+      // RING - Anillo que crece desde el centro
+      // ==========================================
+      ring(ctx, width, height, time) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+
+        const cx = width / 2;
+        const cy = height / 2;
+        const maxR = Math.hypot(cx, cy);
+        const progress = (time * 0.75) % 1;
+        const radius = progress * maxR;
+        const thickness = Math.max(8, width * 0.06);
+        const hue = (time * 90) % 360;
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.25)`;
+        ctx.lineWidth = thickness * 2.2;
+        ctx.stroke();
+
+        // Main ring
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.95)`;
+        ctx.lineWidth = thickness;
+        ctx.stroke();
+      },
 
     // ==========================================
     // CROSS SWEEP - Horizontal + vertical bars
