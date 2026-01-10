@@ -321,7 +321,8 @@ async function startScan() {
   isScanning = true;
   scanBtn.disabled = true;
   playBtn.disabled = true;
-  scanProgress.classList.add('active');
+  if (scanProgress) scanProgress.classList.add('active');
+  if (progressFill) progressFill.style.width = '0%';
   
   // Clear previous positions
   socket.emit('clearPositions');
@@ -347,7 +348,9 @@ async function startScan() {
     const screen = screens[i];
     
     // Update progress
-    progressFill.style.width = `${((i + 1) / screens.length) * 100}%`;
+    if (progressFill) {
+      progressFill.style.width = `${((i + 1) / screens.length) * 100}%`;
+    }
     progressText.textContent = `Escaneando ${screen.name}... (${i + 1}/${screens.length})`;
     
     // Flash this screen white at maximum brightness
@@ -398,7 +401,7 @@ async function startScan() {
   
   console.log('[SCAN] Scan complete');
   isScanning = false;
-  scanProgress.classList.remove('active');
+  if (scanProgress) scanProgress.classList.remove('active');
   updateControls();
 }
 

@@ -16,6 +16,8 @@ let deviceName = null;
 let wakeLock = null;
 let isConnected = false;
 let statusBarTimeout = null;
+let hasUserInteracted = false;
+let didVibrate = false;
 
 // DOM Elements
 const colorDisplay = document.getElementById('colorDisplay');
@@ -31,6 +33,16 @@ const connectionStatus = document.getElementById('connectionStatus');
 const deviceNameEl = document.getElementById('deviceName');
 const centerInfo = document.getElementById('centerInfo');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+function tryVibrateOnce() {
+  if (didVibrate) return;
+  if (!hasUserInteracted) return;
+  if (!isConnected) return;
+  if (!navigator.vibrate) return;
+
+  navigator.vibrate(CONFIG.vibrateDuration);
+  didVibrate = true;
+}
 
 // ==========================================
 // SOCKET CONNECTION
@@ -58,10 +70,8 @@ function connectSocket() {
       name: deviceName
     });
     
-    // Vibrate on connect
-    if (navigator.vibrate) {
-      navigator.vibrate(CONFIG.vibrateDuration);
-    }
+    // Vibrate only after a user interaction (avoids browser intervention warnings)
+    tryVibrateOnce();
   });
 
   socket.on('registered', (data) => {
@@ -229,6 +239,12 @@ document.body.addEventListener('click', (e) => {
     toggleStatusBar();
   }
 });
+
+// Track first user interaction (enables vibration on some browsers)
+window.addEventListener('pointerdown', () => {
+  hasUserInteracted = true;
+  tryVibrateOnce();
+}, { once: true });
 
 // Fullscreen button (optional)
 if (fullscreenBtn) {

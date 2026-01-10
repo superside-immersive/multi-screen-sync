@@ -192,6 +192,27 @@ input[type="range"]::-webkit-slider-runnable-track {
   overflow-y: auto;
 }
 
+/* Controller scan progress */
+.scan-progress {
+  margin-top: 1rem;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  opacity: 0.4;
+}
+
+.scan-progress.active {
+  opacity: 1;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--text-primary);
+  transition: width 0.2s ease;
+}
+
 /* Video Area */
 .video-wrapper {
   position: relative;
