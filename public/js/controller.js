@@ -31,6 +31,18 @@ let animationBrightness = 1;
 let animationFrame = null;
 let lastColors = new Map(); // For delta encoding
 
+// Audio reactive (bass boom) mode
+let audioBeatEnabled = false;
+let audioCtx = null;
+let audioAnalyser = null;
+let audioData = null;
+let audioSource = null;
+let audioStream = null;
+let audioRaf = null;
+let audioBaseline = 0;
+let lastBeatAt = 0;
+let oneShotRunning = false;
+
 // DOM Elements
 const videoContainer = document.getElementById('videoContainer');
 const webcamVideo = document.getElementById('webcamVideo');
@@ -954,6 +966,188 @@ function stopAnimation() {
   console.log('[ANIMATION] Stopped');
 }
 
+function getDetectedScreens() {
+  return screens.filter(s => s.position);
+}
+
+function sampleAndSendFrame(detectedScreens) {
+  const colors = [];
+
+  detectedScreens.forEach(screen => {
+    const color = sampleAreaColor(screen);
+
+    const finalColor = {
+      r: Math.round(color.r * animationBrightness),
+      g: Math.round(color.g * animationBrightness),
+      b: Math.round(color.b * animationBrightness)
+    };
+
+    const lastColor = lastColors.get(screen.socketId);
+    if (!lastColor || colorDiff(lastColor, finalColor) > 3) {
+      colors.push({ screenId: screen.socketId, color: finalColor });
+      lastColors.set(screen.socketId, finalColor);
+    }
+  });
+
+  if (colors.length > 0) {
+    socket.emit('sendColors', colors);
+  }
+}
+
+function runOneShot(animationType, durationMs) {
+  if (oneShotRunning) return;
+  oneShotRunning = true;
+
+  const detectedScreens = getDetectedScreens();
+  if (detectedScreens.length === 0) {
+    // Fallback: single global flash if there's no mapping
+    triggerBang({ r: 255, g: 255, b: 255 });
+    oneShotRunning = false;
+    return;
+  }
+
+  if (!virtualCtx) {
+    // If webcam hasn't been started yet, we still can render to a virtual canvas.
+    virtualCanvas = document.createElement('canvas');
+    virtualCanvas.width = CONFIG.canvasSize;
+    virtualCanvas.height = CONFIG.canvasSize;
+    virtualCtx = virtualCanvas.getContext('2d');
+  }
+
+  lastColors.clear();
+  const start = performance.now();
+  const frameInterval = 1000 / CONFIG.animationFPS;
+  let lastFrameTime = 0;
+
+  function frame(now) {
+    const elapsedMs = now - start;
+    if (elapsedMs >= durationMs) {
+      // Final frame
+      renderAnimation(animationType, (durationMs / 1000) * animationSpeed);
+      sampleAndSendFrame(detectedScreens);
+      oneShotRunning = false;
+      return;
+    }
+
+    if (now - lastFrameTime >= frameInterval) {
+      lastFrameTime = now;
+      renderAnimation(animationType, (elapsedMs / 1000) * animationSpeed);
+      sampleAndSendFrame(detectedScreens);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+async function startAudioBeatMode() {
+  if (audioBeatEnabled) return;
+  audioBeatEnabled = true;
+  oneShotRunning = false;
+
+  stopAnimation();
+  updateControls();
+
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioSource = audioCtx.createMediaStreamSource(audioStream);
+    audioAnalyser = audioCtx.createAnalyser();
+    audioAnalyser.fftSize = 2048;
+    audioAnalyser.smoothingTimeConstant = 0.75;
+    audioSource.connect(audioAnalyser);
+
+    audioData = new Uint8Array(audioAnalyser.frequencyBinCount);
+    audioBaseline = 0;
+    lastBeatAt = 0;
+
+    progressText.textContent = 'AudioRítmico: escuchando graves...';
+
+    const minHz = 40;
+    const maxHz = 140;
+    const cooldownMs = 280;
+    const thresholdFactor = 1.75;
+    const minEnergy = 28;
+
+    const tick = () => {
+      if (!audioBeatEnabled || !audioAnalyser) return;
+
+      audioAnalyser.getByteFrequencyData(audioData);
+
+      const nyquist = audioCtx.sampleRate / 2;
+      const minBin = Math.max(0, Math.floor((minHz / nyquist) * audioData.length));
+      const maxBin = Math.min(audioData.length - 1, Math.ceil((maxHz / nyquist) * audioData.length));
+
+      let sum = 0;
+      let count = 0;
+      for (let i = minBin; i <= maxBin; i++) {
+        sum += audioData[i];
+        count++;
+      }
+      const energy = count ? sum / count : 0;
+
+      // Exponential moving average baseline
+      audioBaseline = audioBaseline ? (audioBaseline * 0.92 + energy * 0.08) : energy;
+
+      const now = performance.now();
+      const boom = energy > Math.max(minEnergy, audioBaseline * thresholdFactor);
+
+      if (boom && now - lastBeatAt > cooldownMs) {
+        lastBeatAt = now;
+        // One-shot sequence: a single pulse (no loop) per boom
+        runOneShot('pulse', 1200);
+      }
+
+      audioRaf = requestAnimationFrame(tick);
+    };
+
+    audioRaf = requestAnimationFrame(tick);
+  } catch (err) {
+    console.error('[AUDIO] Could not start audio mode:', err);
+    audioBeatEnabled = false;
+    progressText.textContent = 'AudioRítmico: sin permiso de micrófono';
+    updateControls();
+  }
+}
+
+function stopAudioBeatMode() {
+  if (!audioBeatEnabled) return;
+  audioBeatEnabled = false;
+  oneShotRunning = false;
+
+  if (audioRaf) {
+    cancelAnimationFrame(audioRaf);
+    audioRaf = null;
+  }
+
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => t.stop());
+    audioStream = null;
+  }
+
+  if (audioCtx) {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
+  }
+  audioSource = null;
+  audioAnalyser = null;
+  audioData = null;
+
+  if (progressText) {
+    progressText.textContent = 'Idle';
+  }
+
+  updateControls();
+}
+
 function blackout() {
   stopAnimation();
   socket.emit('broadcastColor', { color: { r: 0, g: 0, b: 0 } });
@@ -990,6 +1184,10 @@ function renderAnimation(type, time) {
   if (!virtualCtx) return;
   
   switch (type) {
+    case 'audioBeat':
+      // Fallback rendering: use pulse (audio mode triggers one-shots separately)
+      Animations.pulse(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
+      break;
     case 'gradient':
       Animations.gradient(virtualCtx, CONFIG.canvasSize, CONFIG.canvasSize, time);
       break;
@@ -1038,21 +1236,35 @@ function updateControls() {
   const hasDetectedScreens = screens.some(s => s.position);
   
   scanBtn.disabled = !hasWebcam || !hasScreens || isScanning;
-  playBtn.disabled = !hasDetectedScreens || isAnimating;
-  stopBtn.disabled = !isAnimating;
+  if (audioBeatEnabled) {
+    playBtn.disabled = true;
+    stopBtn.disabled = true;
+  } else {
+    playBtn.disabled = !hasDetectedScreens || isAnimating;
+    stopBtn.disabled = !isAnimating;
+  }
 }
 
 // Animation selection
 animationGrid.addEventListener('click', (e) => {
-  const btn = e.target.closest('.animation-btn');
+  const btn = e.target.closest('.control-btn');
   if (!btn) return;
   
   // Update active state
-  animationGrid.querySelectorAll('.animation-btn').forEach(b => b.classList.remove('active'));
+  animationGrid.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   
-  currentAnimation = btn.dataset.animation;
-  console.log(`[ANIMATION] Selected: ${currentAnimation}`);
+  const next = btn.dataset.animation;
+
+  if (next === 'audioBeat') {
+    startAudioBeatMode();
+    currentAnimation = 'audioBeat';
+    console.log('[AUDIO] AudioRítmico enabled');
+  } else {
+    stopAudioBeatMode();
+    currentAnimation = next;
+    console.log(`[ANIMATION] Selected: ${currentAnimation}`);
+  }
 });
 
 // Sliders
